@@ -409,6 +409,25 @@
   .bracket-winner{
     color:var(--gold) !important;
   }
+  .bracket-date-row{
+    display:flex;justify-content:center;margin-top:8px;
+  }
+  .date-input{
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    border-radius:4px;
+    color:var(--ink);
+    padding:5px 8px;
+    font-family:'Oswald',sans-serif;
+    font-size:12px;
+    color-scheme:dark;
+  }
+  .date-input:focus{outline:none;border-color:var(--blood);}
+  .bracket-date-label{
+    font-size:11px;
+    letter-spacing:0.5px;
+    color:var(--ink-dim);
+  }
   @media (max-width:640px){
     .bracket-grid{grid-template-columns:1fr;}
     .bracket-connector{display:none;}
@@ -455,6 +474,7 @@
   <div class="section-title"><h2>Fase eliminatoria</h2></div>
   <div class="toolbar" style="margin:0 0 18px;">
     <button class="btn-outline" id="generate-bracket-btn" style="display:none;">Generar bracket desde la tabla (top 4)</button>
+    <button class="btn-outline" id="reset-bracket-btn" style="display:none;">Borrar bracket</button>
   </div>
   <div id="bracket-wrap"></div>
 
@@ -565,10 +585,10 @@ function defaultState(){
   const bracket = {
     generated:false,
     semis:[
-      {home:null, away:null, homeScore:null, awayScore:null, played:false},
-      {home:null, away:null, homeScore:null, awayScore:null, played:false}
+      {home:null, away:null, homeScore:null, awayScore:null, played:false, date:null},
+      {home:null, away:null, homeScore:null, awayScore:null, played:false, date:null}
     ],
-    final:{home:null, away:null, homeScore:null, awayScore:null, played:false}
+    final:{home:null, away:null, homeScore:null, awayScore:null, played:false, date:null}
   };
   return {matches, bracket};
 }
@@ -693,10 +713,10 @@ function generateBracket(){
   state.bracket = {
     generated:true,
     semis:[
-      {home:s1.id, away:s4.id, homeScore:null, awayScore:null, played:false},
-      {home:s2.id, away:s3.id, homeScore:null, awayScore:null, played:false}
+      {home:s1.id, away:s4.id, homeScore:null, awayScore:null, played:false, date:null},
+      {home:s2.id, away:s3.id, homeScore:null, awayScore:null, played:false, date:null}
     ],
-    final:{home:null, away:null, homeScore:null, awayScore:null, played:false}
+    final:{home:null, away:null, homeScore:null, awayScore:null, played:false, date:null}
   };
   saveState();
   renderBracket();
@@ -724,6 +744,11 @@ function renderBracketMatch(m, key, label){
         </div>
         ${renderSide(away,'away',false)}
       </div>
+      <div class="bracket-date-row">
+        ${isAdmin
+          ? `<input type="date" class="date-input" data-dkey="${key}" value="${m.date||''}">`
+          : (m.date ? `<span class="bracket-date-label">📅 ${formatDateEs(m.date)}</span>` : '')}
+      </div>
       ${canEdit ? `
       <div class="match-actions">
         <button class="btn ${m.played?'played':''}" data-btoggle="${key}">
@@ -733,11 +758,20 @@ function renderBracketMatch(m, key, label){
     </div>`;
 }
 
+function formatDateEs(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-');
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return `${parseInt(d,10)} ${meses[parseInt(m,10)-1]} ${y}`;
+}
+
 function renderBracket(){
   const wrap = document.getElementById('bracket-wrap');
   const genBtn = document.getElementById('generate-bracket-btn');
+  const resetBtn = document.getElementById('reset-bracket-btn');
   genBtn.style.display = isAdmin ? '' : 'none';
   genBtn.textContent = state.bracket.generated ? 'Regenerar bracket desde la tabla' : 'Generar bracket desde la tabla (top 4)';
+  resetBtn.style.display = (isAdmin && state.bracket.generated) ? '' : 'none';
 
   if(!state.bracket.generated){
     wrap.innerHTML = `<div class="bracket-empty">Aún no se ha definido el bracket. ${isAdmin ? 'Usa el botón de arriba cuando termine la fase de grupos.' : 'Vuelve más tarde.'}</div>`;
@@ -772,6 +806,15 @@ function renderBracket(){
       const val = e.target.value === '' ? null : parseInt(e.target.value,10);
       const m = key==='final' ? state.bracket.final : state.bracket.semis[key==='semi0'?0:1];
       m[side==='home'?'homeScore':'awayScore'] = val;
+      saveState();
+    });
+  });
+
+  wrap.querySelectorAll('.date-input[data-dkey]').forEach(inp=>{
+    inp.addEventListener('change', e=>{
+      const key = e.target.dataset.dkey;
+      const m = key==='final' ? state.bracket.final : state.bracket.semis[key==='semi0'?0:1];
+      m.date = e.target.value || null;
       saveState();
     });
   });
@@ -911,6 +954,20 @@ function loadState(){
 }
 
 document.getElementById('generate-bracket-btn').addEventListener('click', generateBracket);
+
+document.getElementById('reset-bracket-btn').addEventListener('click', ()=>{
+  if(!confirm('¿Borrar el bracket? Los resultados de la fase de grupos (jornadas y tabla) no se tocan.')) return;
+  state.bracket = {
+    generated:false,
+    semis:[
+      {home:null, away:null, homeScore:null, awayScore:null, played:false, date:null},
+      {home:null, away:null, homeScore:null, awayScore:null, played:false, date:null}
+    ],
+    final:{home:null, away:null, homeScore:null, awayScore:null, played:false, date:null}
+  };
+  saveState();
+  renderBracket();
+});
 
 document.getElementById('reset-btn').addEventListener('click', async ()=>{
   if(!confirm('¿Reiniciar toda la temporada? Esto borrará todos los resultados guardados.')) return;
