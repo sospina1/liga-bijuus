@@ -332,6 +332,19 @@
     pointer-events:none;
   }
 
+  .config-warning{
+    max-width:520px;
+    margin:18px auto 0;
+    background:rgba(212,165,55,0.1);
+    border:1px solid var(--gold);
+    color:var(--gold);
+    font-size:12px;
+    letter-spacing:0.5px;
+    padding:10px 16px;
+    border-radius:5px;
+    text-align:center;
+  }
+
   @media (max-width:520px){
     tbody td, thead th{font-size:12px;padding:8px 4px;}
     .team-icon{width:18px;font-size:16px;}
@@ -347,6 +360,9 @@
   <h1>Liga<span>Bijuus</span></h1>
   <div class="claw"></div>
   <button id="admin-toggle" class="admin-toggle" title="Acceso admin">🔒</button>
+  <div id="config-warning" class="config-warning" style="display:none;">
+    ⚠️ Firebase aún no está configurado — la tabla no se guarda ni se sincroniza todavía.
+  </div>
 </header>
 
 <main>
@@ -434,6 +450,13 @@ try{
   firebaseReady = true;
 }catch(err){
   console.warn('Firebase no configurado todavía:', err);
+}
+
+if(firebaseConfig.apiKey === "TU_API_KEY"){
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const w = document.getElementById('config-warning');
+    if(w) w.style.display = 'block';
+  });
 }
 
 const STORAGE_KEY = 'liga-bijuus-state-v1';
@@ -657,11 +680,11 @@ async function saveState(){
 }
 
 function loadState(){
+  // Render inmediato con datos por defecto para que la tabla nunca se vea vacía.
+  renderStandings();
+  applyAdminUI();
+
   if(!firebaseReady){
-    // No hay Firebase configurado: la app funciona solo en esta sesión, sin guardar.
-    state = defaultState();
-    renderStandings();
-    applyAdminUI();
     return;
   }
   db.ref(STORAGE_KEY).on('value', snapshot => {
