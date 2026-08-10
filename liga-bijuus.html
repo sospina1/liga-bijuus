@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liga Bijuus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Creepster&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+  :root{
+    --bg:#0a0707;
+    --bg-2:#130a0a;
+    --card:#1a0e0e;
+    --line:#3a1518;
+    --blood:#c81e2c;
+    --blood-dark:#7a0d17;
+    --gold:#d4a537;
+    --ink:#eee3d8;
+    --ink-dim:#a89890;
+    --teal:#2bb6a3;
+    --purple:#8a5cf0;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(200,30,44,0.18), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 90% 100%, rgba(122,13,23,0.15), transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Oswald',sans-serif;
+    min-height:100vh;
+    padding:0 0 60px 0;
+  }
+  .spiral-watermark{
+    position:fixed;
+    top:50%;left:50%;
+    width:900px;height:900px;
+    transform:translate(-50%,-50%);
+    opacity:0.035;
+    pointer-events:none;
+    z-index:0;
+    background:conic-gradient(from 0deg, var(--blood), transparent 30%, var(--blood) 60%, transparent 90%);
+    border-radius:50%;
+    filter:blur(2px);
+    animation:spin 90s linear infinite;
+  }
+  @keyframes spin{from{transform:translate(-50%,-50%) rotate(0deg);}to{transform:translate(-50%,-50%) rotate(360deg);}}
+
+  header{
+    position:relative;
+    text-align:center;
+    padding:48px 20px 28px;
+    z-index:1;
+  }
+  .eyebrow{
+    letter-spacing:6px;
+    font-size:12px;
+    color:var(--blood);
+    text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  h1{
+    font-family:'Creepster',cursive;
+    font-size:clamp(42px,9vw,84px);
+    line-height:0.9;
+    margin:0;
+    color:var(--ink);
+    text-shadow:
+      0 0 18px rgba(200,30,44,0.55),
+      0 0 40px rgba(200,30,44,0.25),
+      3px 3px 0 var(--blood-dark);
+    letter-spacing:2px;
+  }
+  h1 span{display:block;color:var(--blood);font-size:0.72em;}
+  .claw{
+    width:220px;height:14px;
+    margin:18px auto 0;
+    background:repeating-linear-gradient(115deg, var(--blood) 0 10px, transparent 10px 22px);
+    clip-path:polygon(0% 40%,10% 0%,20% 40%,30% 0%,40% 40%,50% 0%,60% 40%,70% 0%,80% 40%,90% 0%,100% 40%,100% 100%,0% 100%);
+    opacity:0.85;
+  }
+
+  main{max-width:1100px;margin:0 auto;padding:0 18px;position:relative;z-index:1;}
+
+  .section-title{
+    display:flex;align-items:center;gap:14px;
+    margin:44px 0 18px;
+  }
+  .section-title h2{
+    font-family:'Oswald',sans-serif;
+    font-weight:700;
+    font-size:22px;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color:var(--ink);
+    margin:0;
+    white-space:nowrap;
+  }
+  .section-title::after{
+    content:"";flex:1;height:1px;
+    background:linear-gradient(90deg,var(--blood),transparent);
+  }
+
+  /* Standings table */
+  .table-wrap{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:6px;
+    overflow-x:auto;
+    box-shadow:0 20px 50px rgba(0,0,0,0.5);
+  }
+  table{border-collapse:separate;border-spacing:0;width:100%;min-width:560px;}
+  thead th{
+    background:var(--blood-dark);
+    color:var(--ink);
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    padding:12px 8px;
+    text-align:center;
+    border-bottom:2px solid var(--blood);
+    white-space:nowrap;
+  }
+  thead th:nth-child(2){text-align:left;padding-left:16px;}
+  tbody td{
+    padding:12px 8px;
+    text-align:center;
+    border-bottom:1px solid var(--line);
+    font-size:15px;
+    white-space:nowrap;
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:rgba(200,30,44,0.06);}
+  .pos-cell{font-family:'Creepster',cursive;font-size:22px;color:var(--blood);}
+  .pos-cell.top1{color:var(--gold);}
+  .team-cell{display:flex;align-items:center;gap:10px;text-align:left;font-weight:600;padding-left:16px !important;justify-content:flex-start;}
+  .team-icon{font-size:20px;width:26px;text-align:center;flex-shrink:0;}
+  .pts-cell{color:var(--blood);font-weight:700;font-size:17px;}
+
+  /* Keep Pos + Equipo visible while the stats columns scroll on narrow screens */
+  th:nth-child(1), td:nth-child(1){
+    position:sticky;left:0;z-index:2;
+    background:var(--card);
+  }
+  th:nth-child(2), td:nth-child(2){
+    position:sticky;left:38px;z-index:2;
+    background:var(--card);
+    box-shadow:3px 0 6px -3px rgba(0,0,0,0.6);
+  }
+  thead th:nth-child(1), thead th:nth-child(2){background:var(--blood-dark);}
+  .scroll-hint{
+    display:none;
+    text-align:center;
+    font-size:10px;
+    letter-spacing:1px;
+    color:var(--ink-dim);
+    padding:6px 0 2px;
+  }
+  @media (max-width:640px){
+    .scroll-hint{display:block;}
+  }
+
+  /* Jornadas */
+  .jornadas-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+    gap:16px;
+  }
+  .jornada-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:6px;
+    overflow:hidden;
+  }
+  .jornada-head{
+    background:linear-gradient(90deg,var(--blood-dark),var(--blood));
+    text-align:center;
+    padding:10px;
+    font-weight:700;
+    letter-spacing:2px;
+    font-size:14px;
+    text-transform:uppercase;
+  }
+  .match{
+    padding:12px 14px;
+    border-bottom:1px solid var(--line);
+  }
+  .match:last-child{border-bottom:none;}
+  .match-row{
+    display:grid;
+    grid-template-columns:1fr auto 1fr;
+    align-items:center;
+    gap:8px;
+  }
+  .match-team{
+    display:flex;align-items:center;gap:8px;
+    font-size:13px;font-weight:600;
+  }
+  .match-team.away{justify-content:flex-end;text-align:right;flex-direction:row-reverse;}
+  .match-icon{font-size:16px;}
+  .vs-score{
+    display:flex;align-items:center;gap:6px;
+    justify-self:center;
+  }
+  .score-input{
+    width:34px;height:34px;
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    border-radius:4px;
+    color:var(--ink);
+    text-align:center;
+    font-family:'Oswald',sans-serif;
+    font-weight:700;
+    font-size:15px;
+  }
+  .score-input:focus{outline:none;border-color:var(--blood);}
+  .vs-label{color:var(--ink-dim);font-size:11px;letter-spacing:1px;}
+  .match-actions{
+    display:flex;justify-content:center;margin-top:8px;
+  }
+  .btn{
+    background:transparent;
+    border:1px solid var(--blood);
+    color:var(--blood);
+    padding:5px 14px;
+    border-radius:4px;
+    font-family:'Oswald',sans-serif;
+    font-size:11px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .btn:hover{background:var(--blood);color:#fff;}
+  .btn.played{border-color:var(--gold);color:var(--gold);}
+  .btn.played:hover{background:var(--gold);color:#1a0e0e;}
+  .status-dot{
+    width:6px;height:6px;border-radius:50%;
+    display:inline-block;margin-right:6px;
+    background:var(--ink-dim);
+  }
+  .status-dot.on{background:var(--gold);box-shadow:0 0 6px var(--gold);}
+
+  .toolbar{
+    display:flex;justify-content:center;gap:10px;margin:26px 0 0;
+    flex-wrap:wrap;
+  }
+  .btn-outline{
+    background:transparent;border:1px solid var(--line);color:var(--ink-dim);
+    padding:8px 18px;border-radius:4px;font-size:11px;letter-spacing:1.5px;
+    text-transform:uppercase;cursor:pointer;font-family:'Oswald',sans-serif;
+  }
+  .btn-outline:hover{border-color:var(--blood);color:var(--ink);}
+
+  .save-toast{
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--blood);color:#fff;padding:10px 20px;border-radius:5px;
+    font-size:13px;letter-spacing:1px;opacity:0;pointer-events:none;
+    transition:all .3s ease;z-index:10;
+  }
+  .save-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  footer{
+    text-align:center;margin-top:50px;color:var(--ink-dim);font-size:11px;letter-spacing:1px;
+  }
+
+  .admin-toggle{
+    position:absolute;
+    top:20px;right:20px;
+    width:38px;height:38px;
+    border-radius:50%;
+    background:var(--card);
+    border:1px solid var(--line);
+    color:var(--ink-dim);
+    font-size:16px;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .admin-toggle:hover{border-color:var(--blood);color:var(--blood);}
+  .admin-toggle.active{border-color:var(--gold);color:var(--gold);}
+
+  .admin-modal-backdrop{
+    display:none;
+    position:fixed;inset:0;
+    background:rgba(0,0,0,0.7);
+    z-index:100;
+    align-items:center;justify-content:center;
+    padding:20px;
+  }
+  .admin-modal-backdrop.show{display:flex;}
+  .admin-modal{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:8px;
+    width:100%;max-width:340px;
+    padding:20px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.6);
+  }
+  .admin-modal-head{
+    display:flex;justify-content:space-between;align-items:center;
+    font-weight:700;letter-spacing:1px;text-transform:uppercase;font-size:14px;
+    margin-bottom:16px;color:var(--ink);
+  }
+  .admin-close{
+    background:none;border:none;color:var(--ink-dim);font-size:16px;cursor:pointer;
+  }
+  .admin-input{
+    width:100%;
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    border-radius:4px;
+    color:var(--ink);
+    padding:10px 12px;
+    margin-bottom:10px;
+    font-family:'Oswald',sans-serif;
+    font-size:14px;
+  }
+  .admin-input:focus{outline:none;border-color:var(--blood);}
+  .admin-error{
+    color:var(--blood);
+    font-size:12px;
+    margin:-4px 0 10px;
+    min-height:14px;
+  }
+
+  .locked{
+    opacity:0.5;
+    pointer-events:none;
+  }
+
+  @media (max-width:520px){
+    tbody td, thead th{font-size:12px;padding:8px 4px;}
+    .team-icon{width:18px;font-size:16px;}
+    h1{letter-spacing:0px;}
+  }
+</style>
+</head>
+<body>
+<div class="spiral-watermark"></div>
+
+<header>
+  <div class="eyebrow">Temporada 2026</div>
+  <h1>Liga<span>Bijuus</span></h1>
+  <div class="claw"></div>
+  <button id="admin-toggle" class="admin-toggle" title="Acceso admin">🔒</button>
+</header>
+
+<main>
+  <div class="section-title"><h2>Tabla de posiciones</h2></div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Pos</th><th>Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>GF</th><th>GC</th><th>DG</th><th>Pts</th>
+        </tr>
+      </thead>
+      <tbody id="standings-body"></tbody>
+    </table>
+  </div>
+  <div class="scroll-hint">← desliza para ver todas las columnas →</div>
+
+  <div class="section-title"><h2>Jornadas</h2></div>
+  <div class="jornadas-grid" id="jornadas-grid"></div>
+
+  <div class="toolbar">
+    <button class="btn-outline" id="reset-btn" style="display:none;">Reiniciar temporada</button>
+  </div>
+
+  <footer>Liga Bijuus &middot; tabla en vivo, compartida por enlace</footer>
+</main>
+
+<div class="save-toast" id="toast">Guardado</div>
+
+<!-- Modal de login admin -->
+<div class="admin-modal-backdrop" id="admin-backdrop">
+  <div class="admin-modal">
+    <div class="admin-modal-head">
+      <span id="admin-modal-title">Acceso admin</span>
+      <button class="admin-close" id="admin-close">✕</button>
+    </div>
+    <div id="admin-logged-out">
+      <input type="email" id="admin-email" class="admin-input" placeholder="Correo">
+      <input type="password" id="admin-pass" class="admin-input" placeholder="Contraseña">
+      <div id="admin-error" class="admin-error"></div>
+      <button class="btn" id="admin-login-btn" style="width:100%;padding:10px;">Entrar</button>
+    </div>
+    <div id="admin-logged-in" style="display:none;">
+      <p style="color:var(--ink-dim);font-size:13px;">Sesión activa como administrador. Ahora puedes editar los marcadores.</p>
+      <button class="btn-outline" id="admin-logout-btn" style="width:100%;padding:10px;">Cerrar sesión</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIGURA AQUÍ TU PROYECTO DE FIREBASE (gratis)
+   1. Ve a https://console.firebase.google.com → Crear proyecto
+   2. Build > Realtime Database > Crear base de datos
+   3. Build > Authentication > Sign-in method > habilita "Correo/contraseña"
+      Luego pestaña "Users" > Add user > pon tu correo y una contraseña
+      (esa será tu cuenta de administrador para editar los resultados)
+   4. Ícono de engranaje > Configuración del proyecto > "Tus apps" >
+      ícono </> (Web) > registra la app > copia el firebaseConfig
+      y pégalo abajo, reemplazando el objeto de ejemplo.
+   5. En Realtime Database > pestaña "Rules", pega esto y publica:
+      {
+        "rules": {
+          ".read": true,
+          ".write": "auth != null"
+        }
+      }
+      Esto deja que CUALQUIERA vea la tabla, pero solo alguien que
+      haya iniciado sesión (tú, como admin) pueda editarla.
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROYECTO.firebaseapp.com",
+  databaseURL: "https://TU_PROYECTO-default-rtdb.firebaseio.com",
+  projectId: "TU_PROYECTO",
+  storageBucket: "TU_PROYECTO.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "TU_APP_ID"
+};
+
+let db = null;
+let firebaseReady = false;
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+  firebaseReady = true;
+}catch(err){
+  console.warn('Firebase no configurado todavía:', err);
+}
+
+const STORAGE_KEY = 'liga-bijuus-state-v1';
+
+const TEAMS = [
+  {id:'negan', name:'Equipo Negan', icon:'🔪'},
+  {id:'hidan', name:'Equipo Hidan', icon:'⛧'},
+  {id:'felnt', name:'Equipo Felnt', icon:'F', color:'var(--purple)'},
+  {id:'zokka', name:'Equipo Zokka', icon:'Z', color:'var(--teal)'},
+  {id:'444',   name:'Equipo 444',   icon:'444', color:'var(--gold)'},
+  {id:'alejo', name:'Equipo Alejo', icon:'👑', color:'var(--gold)'},
+];
+
+const JORNADAS = [
+  {n:1, matches:[['negan','alejo'],['hidan','444'],['felnt','zokka']]},
+  {n:2, matches:[['negan','444'],['alejo','zokka'],['hidan','felnt']]},
+  {n:3, matches:[['negan','zokka'],['444','felnt'],['alejo','hidan']]},
+  {n:4, matches:[['negan','felnt'],['zokka','hidan'],['444','alejo']]},
+  {n:5, matches:[['negan','hidan'],['felnt','alejo'],['zokka','444']]},
+];
+
+function defaultState(){
+  const matches = {};
+  JORNADAS.forEach(j=>{
+    j.matches.forEach((m,i)=>{
+      const key = `${j.n}-${i}`;
+      matches[key] = {home:m[0], away:m[1], homeScore:null, awayScore:null, played:false};
+    });
+  });
+  return {matches};
+}
+
+let state = defaultState();
+let toastTimer = null;
+
+function teamById(id){ return TEAMS.find(t=>t.id===id); }
+
+function computeStandings(){
+  const stats = {};
+  TEAMS.forEach(t=> stats[t.id] = {pj:0,g:0,e:0,p:0,gf:0,gc:0});
+  Object.values(state.matches).forEach(m=>{
+    if(!m.played || m.homeScore===null || m.awayScore===null) return;
+    const h = stats[m.home], a = stats[m.away];
+    h.pj++; a.pj++;
+    h.gf += m.homeScore; h.gc += m.awayScore;
+    a.gf += m.awayScore; a.gc += m.homeScore;
+    if(m.homeScore > m.awayScore){ h.g++; a.p++; }
+    else if(m.homeScore < m.awayScore){ a.g++; h.p++; }
+    else { h.e++; a.e++; }
+  });
+  const rows = TEAMS.map(t=>{
+    const s = stats[t.id];
+    const dg = s.gf - s.gc;
+    const pts = s.g*3 + s.e;
+    return {...t, ...s, dg, pts};
+  });
+  rows.sort((a,b)=> b.pts-a.pts || b.dg-a.dg || b.gf-a.gf || a.name.localeCompare(b.name));
+  return rows;
+}
+
+function renderStandings(){
+  const rows = computeStandings();
+  const body = document.getElementById('standings-body');
+  body.innerHTML = rows.map((r,i)=>`
+    <tr>
+      <td class="pos-cell ${i===0?'top1':''}">${i+1}</td>
+      <td class="team-cell"><span class="team-icon" style="${r.color?`color:${r.color}`:''}">${r.icon}</span>${r.name}</td>
+      <td>${r.pj}</td><td>${r.g}</td><td>${r.e}</td><td>${r.p}</td>
+      <td>${r.gf}</td><td>${r.gc}</td><td>${r.dg}</td>
+      <td class="pts-cell">${r.pts}</td>
+    </tr>
+  `).join('');
+}
+
+function renderJornadas(){
+  const grid = document.getElementById('jornadas-grid');
+  grid.innerHTML = JORNADAS.map(j=>`
+    <div class="jornada-card">
+      <div class="jornada-head">Jornada ${j.n}</div>
+      ${j.matches.map((m,i)=>{
+        const key = `${j.n}-${i}`;
+        const md = state.matches[key];
+        const home = teamById(md.home), away = teamById(md.away);
+        return `
+        <div class="match">
+          <div class="match-row">
+            <div class="match-team home"><span class="match-icon" style="${home.color?`color:${home.color}`:''}">${home.icon}</span>${home.name.replace('Equipo ','')}</div>
+            <div class="vs-score">
+              <input type="number" min="0" class="score-input" data-key="${key}" data-side="home" value="${md.homeScore===null?'':md.homeScore}" placeholder="-" ${isAdmin?'':'disabled'}>
+              <span class="vs-label">VS</span>
+              <input type="number" min="0" class="score-input" data-key="${key}" data-side="away" value="${md.awayScore===null?'':md.awayScore}" placeholder="-" ${isAdmin?'':'disabled'}>
+            </div>
+            <div class="match-team away"><span class="match-icon" style="${away.color?`color:${away.color}`:''}">${away.icon}</span>${away.name.replace('Equipo ','')}</div>
+          </div>
+          ${isAdmin ? `
+          <div class="match-actions">
+            <button class="btn ${md.played?'played':''}" data-toggle="${key}">
+              <span class="status-dot ${md.played?'on':''}"></span>${md.played?'Jugado':'Marcar jugado'}
+            </button>
+          </div>` : (md.played ? `<div class="match-actions"><span class="status-dot on"></span><span style="font-size:11px;color:var(--ink-dim);letter-spacing:1px;">JUGADO</span></div>` : '')}
+        </div>`;
+      }).join('')}
+    </div>
+  `).join('');
+
+  if(!isAdmin) return;
+
+  grid.querySelectorAll('.score-input').forEach(inp=>{
+    inp.addEventListener('change', e=>{
+      const key = e.target.dataset.key;
+      const side = e.target.dataset.side;
+      const val = e.target.value === '' ? null : parseInt(e.target.value,10);
+      state.matches[key][side==='home'?'homeScore':'awayScore'] = val;
+      saveState();
+      renderStandings();
+    });
+  });
+
+  grid.querySelectorAll('[data-toggle]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      const key = btn.dataset.toggle;
+      const m = state.matches[key];
+      if(!m.played){
+        if(m.homeScore===null) m.homeScore = 0;
+        if(m.awayScore===null) m.awayScore = 0;
+      }
+      m.played = !m.played;
+      saveState();
+      renderJornadas();
+      renderStandings();
+    });
+  });
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove('show'), 1500);
+}
+
+let auth = null;
+try{
+  auth = firebase.auth();
+}catch(err){
+  console.warn('Firebase Auth no disponible:', err);
+}
+
+let isAdmin = false;
+
+function applyAdminUI(){
+  document.body.classList.toggle('is-admin', isAdmin);
+  document.getElementById('reset-btn').style.display = isAdmin ? '' : 'none';
+  const toggle = document.getElementById('admin-toggle');
+  toggle.classList.toggle('active', isAdmin);
+  toggle.textContent = isAdmin ? '🔓' : '🔒';
+  renderJornadas();
+}
+
+if(auth){
+  auth.onAuthStateChanged(user=>{
+    isAdmin = !!user;
+    document.getElementById('admin-logged-in').style.display = isAdmin ? '' : 'none';
+    document.getElementById('admin-logged-out').style.display = isAdmin ? 'none' : '';
+    applyAdminUI();
+  });
+}
+
+function openAdminModal(){
+  document.getElementById('admin-backdrop').classList.add('show');
+  document.getElementById('admin-error').textContent = '';
+}
+function closeAdminModal(){
+  document.getElementById('admin-backdrop').classList.remove('show');
+}
+
+document.getElementById('admin-toggle').addEventListener('click', openAdminModal);
+document.getElementById('admin-close').addEventListener('click', closeAdminModal);
+document.getElementById('admin-backdrop').addEventListener('click', e=>{
+  if(e.target.id === 'admin-backdrop') closeAdminModal();
+});
+
+document.getElementById('admin-login-btn').addEventListener('click', async ()=>{
+  if(!auth){
+    document.getElementById('admin-error').textContent = 'Firebase Auth no está configurado todavía.';
+    return;
+  }
+  const email = document.getElementById('admin-email').value.trim();
+  const pass = document.getElementById('admin-pass').value;
+  const errEl = document.getElementById('admin-error');
+  errEl.textContent = '';
+  try{
+    await auth.signInWithEmailAndPassword(email, pass);
+    document.getElementById('admin-email').value = '';
+    document.getElementById('admin-pass').value = '';
+    closeAdminModal();
+  }catch(err){
+    errEl.textContent = 'Correo o contraseña incorrectos.';
+  }
+});
+
+document.getElementById('admin-logout-btn').addEventListener('click', async ()=>{
+  if(auth) await auth.signOut();
+  closeAdminModal();
+});
+
+async function saveState(){
+  if(!firebaseReady){
+    showToast('Falta configurar Firebase (ver comentario en el código)');
+    return;
+  }
+  try{
+    suppressNextRemoteRender = true;
+    await db.ref(STORAGE_KEY).set(state);
+    showToast('Guardado');
+  }catch(err){
+    console.error('Error guardando:', err);
+    showToast('No se pudo guardar');
+  }
+}
+
+function loadState(){
+  if(!firebaseReady){
+    // No hay Firebase configurado: la app funciona solo en esta sesión, sin guardar.
+    state = defaultState();
+    renderStandings();
+    applyAdminUI();
+    return;
+  }
+  db.ref(STORAGE_KEY).on('value', snapshot => {
+    const base = defaultState();
+    const remote = snapshot.val();
+    if(remote && remote.matches){
+      Object.keys(base.matches).forEach(k=>{
+        if(remote.matches[k]) base.matches[k] = remote.matches[k];
+      });
+    }
+    state = base;
+    renderStandings();
+    renderJornadas();
+  }, err => {
+    console.error('Error leyendo Firebase:', err);
+    showToast('No se pudo conectar a la base de datos');
+  });
+}
+
+document.getElementById('reset-btn').addEventListener('click', async ()=>{
+  if(!confirm('¿Reiniciar toda la temporada? Esto borrará todos los resultados guardados.')) return;
+  state = defaultState();
+  await saveState();
+});
+
+loadState();
+</script>
+</body>
+</html>
